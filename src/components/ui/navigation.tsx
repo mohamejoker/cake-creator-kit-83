@@ -21,14 +21,20 @@ const Navigation = () => {
       href: '/',
       icon: Home,
       active: location.pathname === '/'
-    },
-    {
+    }
+  ];
+
+  // Only show admin link if on admin page
+  const showAdminLink = location.pathname === '/admin';
+  
+  if (showAdminLink) {
+    navItems.push({
       title: 'لوحة التحكم',
       href: '/admin',
       icon: Settings,
-      active: location.pathname === '/admin' || location.pathname === '/ادمن'
-    }
-  ];
+      active: true
+    });
+  }
 
   return (
     <>

@@ -4,6 +4,7 @@
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
+Updated for better Arabic UI and beauty theme.
 */
 
 @layer base {
@@ -46,8 +47,10 @@ All colors MUST be HSL.
     
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(330 81% 60%), hsl(280 60% 70%));
+    --gradient-secondary: linear-gradient(135deg, hsl(320 40% 85%), hsl(280 50% 85%));
     --gradient-soft: linear-gradient(180deg, hsl(340 100% 98%), hsl(320 50% 95%));
     --gradient-accent: linear-gradient(135deg, hsl(15 85% 70%), hsl(330 81% 60%));
+    --gradient-hero: linear-gradient(135deg, hsl(330 81% 60%) 0%, hsl(320 70% 45%) 50%, hsl(280 60% 70%) 100%);
 
     /* Shadows */
     --shadow-soft: 0 4px 20px hsl(330 81% 60% / 0.15);

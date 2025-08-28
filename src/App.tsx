@@ -20,7 +20,6 @@ function App() {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/admin" element={<Admin />} />
-              <Route path="/ادمن" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
