@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { cacheManager, CACHE_KEYS } from '@/lib/cache';
+import { performanceMonitor } from '@/lib/performance';
 
 export interface Product {
   id: string;
@@ -23,7 +25,15 @@ export const useProducts = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchProducts = async () => {
+  const fetchProducts = performanceMonitor.measureTime(async () => {
+    // Check cache first
+    const cachedProducts = cacheManager.get<Product[]>(CACHE_KEYS.PRODUCTS);
+    if (cachedProducts) {
+      setProducts(cachedProducts);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('products')
@@ -31,7 +41,12 @@ export const useProducts = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      const productsData = data || [];
+      setProducts(productsData);
+      
+      // Cache the results
+      cacheManager.set(CACHE_KEYS.PRODUCTS, productsData);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({
@@ -42,7 +57,7 @@ export const useProducts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, 'fetchProducts');
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {
@@ -56,6 +71,9 @@ export const useProducts = () => {
       setProducts(prev => prev.map(product => 
         product.id === id ? { ...product, ...updates } : product
       ));
+
+      // Invalidate cache after update
+      cacheManager.invalidate(CACHE_KEYS.PRODUCTS);
 
       toast({
         title: "تم التحديث بنجاح! ✨",
@@ -85,6 +103,10 @@ export const useProducts = () => {
       if (error) throw error;
 
       setProducts(prev => [data, ...prev]);
+      
+      // Invalidate cache after new product
+      cacheManager.invalidate(CACHE_KEYS.PRODUCTS);
+      
       toast({
         title: "تم إضافة المنتج بنجاح! ✨",
         description: "تم إضافة المنتج الجديد بنجاح",
@@ -113,7 +135,9 @@ export const useProducts = () => {
         { event: '*', schema: 'public', table: 'products' },
         (payload) => {
           console.log('Product change detected:', payload);
-          fetchProducts(); // إعادة تحميل البيانات عند حدوث تغيير
+          // Invalidate cache and refetch
+          cacheManager.invalidate(CACHE_KEYS.PRODUCTS);
+          fetchProducts();
         }
       )
       .subscribe();

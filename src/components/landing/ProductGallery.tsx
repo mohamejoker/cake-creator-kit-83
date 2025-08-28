@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import LazyImage from '@/components/ui/lazy-image';
 
 interface ProductGalleryProps {
   images: string[];
@@ -35,7 +36,7 @@ const ProductGallery = ({ images, productName }: ProductGalleryProps) => {
         <Dialog>
           <DialogTrigger asChild>
             <div className="relative cursor-pointer">
-              <img
+              <LazyImage
                 src={images[currentImageIndex]}
                 alt={`${productName} - صورة ${currentImageIndex + 1}`}
                 className="w-full h-80 object-cover rounded-lg shadow-lg transition-transform group-hover:scale-105"
@@ -46,7 +47,7 @@ const ProductGallery = ({ images, productName }: ProductGalleryProps) => {
             </div>
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
-            <img
+            <LazyImage
               src={images[currentImageIndex]}
               alt={`${productName} - صورة ${currentImageIndex + 1}`}
               className="w-full h-auto max-h-[80vh] object-contain"
@@ -97,7 +98,7 @@ const ProductGallery = ({ images, productName }: ProductGalleryProps) => {
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <img
+              <LazyImage
                 src={image}
                 alt={`${productName} - مصغر ${index + 1}`}
                 className="w-full h-full object-cover"

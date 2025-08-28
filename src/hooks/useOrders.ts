@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { cacheManager, CACHE_KEYS } from '@/lib/cache';
+import { performanceMonitor } from '@/lib/performance';
 
 export interface Order {
   id: string;
@@ -22,7 +24,15 @@ export const useOrders = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchOrders = async () => {
+  const fetchOrders = performanceMonitor.measureTime(async () => {
+    // Check cache first
+    const cachedOrders = cacheManager.get<Order[]>(CACHE_KEYS.ORDERS);
+    if (cachedOrders) {
+      setOrders(cachedOrders);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -30,7 +40,12 @@ export const useOrders = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      
+      const ordersData = data || [];
+      setOrders(ordersData);
+      
+      // Cache the results
+      cacheManager.set(CACHE_KEYS.ORDERS, ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({
@@ -41,7 +56,7 @@ export const useOrders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, 'fetchOrders');
 
   const updateOrderStatus = async (id: string, status: string) => {
     try {
@@ -55,6 +70,10 @@ export const useOrders = () => {
       setOrders(prev => prev.map(order => 
         order.id === id ? { ...order, status } : order
       ));
+
+      // Invalidate cache after update
+      cacheManager.invalidate(CACHE_KEYS.ORDERS);
+      cacheManager.invalidate(CACHE_KEYS.ORDER_STATS);
 
       toast({
         title: "تم تحديث الحالة",
@@ -84,6 +103,11 @@ export const useOrders = () => {
       if (error) throw error;
 
       setOrders(prev => [data, ...prev]);
+      
+      // Invalidate cache after new order
+      cacheManager.invalidate(CACHE_KEYS.ORDERS);
+      cacheManager.invalidate(CACHE_KEYS.ORDER_STATS);
+      
       return data;
     } catch (error) {
       console.error('Error adding order:', error);
@@ -107,7 +131,10 @@ export const useOrders = () => {
         { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
           console.log('Order change detected:', payload);
-          fetchOrders(); // إعادة تحميل البيانات عند حدوث تغيير
+          // Invalidate cache and refetch
+          cacheManager.invalidate(CACHE_KEYS.ORDERS);
+          cacheManager.invalidate(CACHE_KEYS.ORDER_STATS);
+          fetchOrders();
         }
       )
       .subscribe();

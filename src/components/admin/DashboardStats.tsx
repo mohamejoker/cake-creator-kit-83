@@ -12,36 +12,64 @@ import {
 } from 'lucide-react';
 import { useOrders } from '@/hooks/useOrders';
 import { useProducts } from '@/hooks/useProducts';
+import { useMemo } from 'react';
+import { cacheManager, CACHE_KEYS } from '@/lib/cache';
 
 const DashboardStats = () => {
   const { orders } = useOrders();
   const { products } = useProducts();
 
-  // Calculate statistics
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
-  const pendingOrders = orders.filter(order => order.status === 'جديد' || order.status === 'قيد التحضير').length;
-  const completedOrders = orders.filter(order => order.status === 'تم التوصيل').length;
-  const cancelledOrders = orders.filter(order => order.status === 'ملغي').length;
-  
-  // Calculate recent orders (last 7 days)
-  const recentOrders = orders.filter(order => {
-    const orderDate = new Date(order.created_at);
+  // Memoize expensive calculations
+  const stats = useMemo(() => {
+    // Check cache first
+    const cacheKey = `${CACHE_KEYS.ORDER_STATS}_${orders.length}_${products.length}`;
+    const cachedStats = cacheManager.get(cacheKey);
+    if (cachedStats) return cachedStats;
+
+    // Calculate statistics
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
+    const pendingOrders = orders.filter(order => 
+      order.status === 'جديد' || order.status === 'قيد التحضير'
+    ).length;
+    const completedOrders = orders.filter(order => order.status === 'تم التوصيل').length;
+    const cancelledOrders = orders.filter(order => order.status === 'ملغي').length;
+    
+    // Calculate recent orders (last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return orderDate >= sevenDaysAgo;
-  }).length;
+    
+    const recentOrders = orders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      return orderDate >= sevenDaysAgo;
+    }).length;
 
-  // Calculate average order value
-  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    // Calculate average order value
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  // Active products count
-  const activeProducts = products.filter(product => product.is_active !== false).length;
+    // Active products count
+    const activeProducts = products.filter(product => product.is_active !== false).length;
 
-  const stats = [
+    const calculatedStats = {
+      totalOrders,
+      totalRevenue,
+      pendingOrders,
+      completedOrders,
+      cancelledOrders,
+      recentOrders,
+      averageOrderValue,
+      activeProducts
+    };
+
+    // Cache for 2 minutes
+    cacheManager.set(cacheKey, calculatedStats, 2 * 60 * 1000);
+    return calculatedStats;
+  }, [orders, products]);
+
+  const statsCards = [
     {
       title: 'إجمالي الطلبات',
-      value: totalOrders.toLocaleString(),
+      value: stats.totalOrders.toLocaleString(),
       description: 'جميع الطلبات في النظام',
       icon: ShoppingBag,
       color: 'bg-blue-500',
@@ -50,7 +78,7 @@ const DashboardStats = () => {
     },
     {
       title: 'إجمالي الإيرادات',
-      value: `${totalRevenue.toLocaleString()} ج.م`,
+      value: `${stats.totalRevenue.toLocaleString()} ج.م`,
       description: 'المبيعات الإجمالية',
       icon: DollarSign,
       color: 'bg-green-500',
@@ -59,7 +87,7 @@ const DashboardStats = () => {
     },
     {
       title: 'طلبات قيد المعالجة',
-      value: pendingOrders.toLocaleString(),
+      value: stats.pendingOrders.toLocaleString(),
       description: 'طلبات تحتاج متابعة',
       icon: Clock,
       color: 'bg-orange-500',
@@ -68,7 +96,7 @@ const DashboardStats = () => {
     },
     {
       title: 'طلبات مكتملة',
-      value: completedOrders.toLocaleString(),
+      value: stats.completedOrders.toLocaleString(),
       description: 'طلبات تم توصيلها بنجاح',
       icon: CheckCircle,
       color: 'bg-emerald-500',
@@ -77,7 +105,7 @@ const DashboardStats = () => {
     },
     {
       title: 'المنتجات النشطة',
-      value: activeProducts.toLocaleString(),
+      value: stats.activeProducts.toLocaleString(),
       description: 'منتجات متاحة للبيع',
       icon: Package,
       color: 'bg-purple-500',
@@ -86,7 +114,7 @@ const DashboardStats = () => {
     },
     {
       title: 'متوسط قيمة الطلب',
-      value: `${averageOrderValue.toLocaleString()} ج.م`,
+      value: `${stats.averageOrderValue.toLocaleString()} ج.م`,
       description: 'متوسط مبلغ الطلب الواحد',
       icon: TrendingUp,
       color: 'bg-indigo-500',
@@ -99,7 +127,7 @@ const DashboardStats = () => {
     <div className="space-y-6 mb-8">
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stats.map((stat, index) => (
+        {statsCards.map((stat, index) => (
           <Card key={index} className="relative overflow-hidden shadow-soft border-0 hover:shadow-medium transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -140,7 +168,7 @@ const DashboardStats = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">طلبات جديدة</span>
                 <Badge variant="secondary" className="bg-gradient-primary text-white">
-                  {recentOrders}
+                  {stats.recentOrders}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
@@ -152,7 +180,7 @@ const DashboardStats = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">معدل النجاح</span>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  {totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0}%
+                  {stats.totalOrders > 0 ? Math.round((stats.completedOrders / stats.totalOrders) * 100) : 0}%
                 </Badge>
               </div>
             </div>
@@ -174,21 +202,21 @@ const DashboardStats = () => {
                 <span className="text-sm">مكتملة</span>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="font-medium">{completedOrders}</span>
+                  <span className="font-medium">{stats.completedOrders}</span>
                 </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">قيد المعالجة</span>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-orange-500" />
-                  <span className="font-medium">{pendingOrders}</span>
+                  <span className="font-medium">{stats.pendingOrders}</span>
                 </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">ملغية</span>
                 <div className="flex items-center gap-2">
                   <XCircle className="w-4 h-4 text-red-500" />
-                  <span className="font-medium">{cancelledOrders}</span>
+                  <span className="font-medium">{stats.cancelledOrders}</span>
                 </div>
               </div>
             </div>
@@ -209,7 +237,7 @@ const DashboardStats = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">معدل التحويل</span>
                 <Badge className="bg-gradient-primary text-white">
-                  {totalOrders > 0 ? '85%' : '0%'}
+                  {stats.totalOrders > 0 ? '85%' : '0%'}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">

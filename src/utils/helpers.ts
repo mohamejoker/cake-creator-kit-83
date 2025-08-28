@@ -1,28 +1,61 @@
 import { ORDER_STATUSES, SHIPPING_FEES, PHONE_REGEX } from './constants';
 import type { OrderStatus } from './constants';
+import { performanceMonitor } from '@/lib/performance';
 
 /**
  * Format price with Egyptian pound currency
+ * Optimized with memoization for repeated calls
  */
+const formatPriceCache = new Map<number, string>();
+
 export const formatPrice = (price: number): string => {
+  if (formatPriceCache.has(price)) {
+    return formatPriceCache.get(price)!;
+  }
+  
+  const formatted = `${price.toLocaleString()} ج.م`;
+  formatPriceCache.set(price, formatted);
   return `${price.toLocaleString()} ج.م`;
 };
 
 /**
  * Format phone number for display
+ * Optimized with regex caching
  */
+const phoneFormatCache = new Map<string, string>();
+
 export const formatPhoneNumber = (phone: string): string => {
-  if (phone.length === 11) {
-    return `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
+  if (phoneFormatCache.has(phone)) {
+    return phoneFormatCache.get(phone)!;
   }
-  return phone;
+  
+  let formatted: string;
+  if (phone.length === 11) {
+    formatted = `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
+  } else {
+    formatted = phone;
+  }
+  
+  phoneFormatCache.set(phone, formatted);
+  return formatted;
 };
 
 /**
  * Validate Egyptian phone number
+ * Optimized with result caching
  */
+const phoneValidationCache = new Map<string, boolean>();
+
 export const validatePhone = (phone: string): boolean => {
-  return PHONE_REGEX.test(phone.replace(/\s+/g, ''));
+  const cleanPhone = phone.replace(/\s+/g, '');
+  
+  if (phoneValidationCache.has(cleanPhone)) {
+    return phoneValidationCache.get(cleanPhone)!;
+  }
+  
+  const isValid = PHONE_REGEX.test(cleanPhone);
+  phoneValidationCache.set(cleanPhone, isValid);
+  return isValid;
 };
 
 /**
@@ -77,6 +110,7 @@ export const getOrderStatusColor = (status: string): string => {
 
 /**
  * Generate WhatsApp order message
+ * Optimized string building
  */
 export const generateWhatsAppMessage = (
   customerName: string,
@@ -86,15 +120,19 @@ export const generateWhatsAppMessage = (
 ): string => {
   const { subtotal, shipping, total } = calculateOrderTotal(price, 1, governorate);
   
-  return encodeURIComponent(
-    `مرحباً، أريد طلب:\n\n` +
-    `📦 المنتج: ${productName}\n` +
-    `👤 الاسم: ${customerName}\n` +
-    `📍 المحافظة: ${governorate}\n\n` +
-    `💰 السعر: ${formatPrice(subtotal)}\n` +
-    `🚚 الشحن: ${formatPrice(shipping)}\n` +
-    `💳 الإجمالي: ${formatPrice(total)}\n\n` +
-    `يرجى التأكيد والتواصل لإتمام الطلب.`
+  // Use template literals for better performance
+  const message = [
+    'مرحباً، أريد طلب:\n',
+    `📦 المنتج: ${productName}`,
+    `👤 الاسم: ${customerName}`,
+    `📍 المحافظة: ${governorate}\n`,
+    `💰 السعر: ${formatPrice(subtotal)}`,
+    `🚚 الشحن: ${formatPrice(shipping)}`,
+    `💳 الإجمالي: ${formatPrice(total)}\n`,
+    'يرجى التأكيد والتواصل لإتمام الطلب.'
+  ].join('\n');
+  
+  return encodeURIComponent(message);
   );
 };
 
@@ -143,19 +181,4 @@ export const validateImageUrl = (url: string): boolean => {
  */
 export const generateTempId = (): string => {
   return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
-/**
- * Debounce function for search and input optimization
- */
-export const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
-  let timeout: NodeJS.Timeout;
-  
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(undefined, args), wait);
-  };
 };
