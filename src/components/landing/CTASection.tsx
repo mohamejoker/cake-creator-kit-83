@@ -19,7 +19,9 @@ const CTASection = ({ productPrice, onOrderClick }: CTASectionProps) => {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button 
             onClick={onOrderClick}
-            className="bg-white text-primary hover:bg-white/90 text-xl px-8 py-4 shadow-glow"
+            variant="premium"
+            size="xl"
+            className="bg-white text-primary hover:bg-white/90 shadow-glow hover:shadow-[0_0_40px_hsl(330_81%_60%_/_0.6)] animate-pulse"
           >
             <ShoppingCart className="w-6 h-6 ml-2" />
             اطلب الآن - {productPrice.toLocaleString()} جنيه

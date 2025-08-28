@@ -56,16 +56,18 @@ const HeroSection = ({ product, onOrderClick }: HeroSectionProps) => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button 
                 onClick={onOrderClick}
-                className="bg-white text-primary hover:bg-white/90 text-lg px-8 py-3"
+                variant="premium"
+                size="xl"
+                className="shadow-glow hover:shadow-[0_0_40px_hsl(330_81%_60%_/_0.4)] animate-pulse"
               >
-                <ShoppingCart className="w-5 h-5 ml-2" />
+                <ShoppingCart className="w-6 h-6 ml-2" />
                 اطلب الآن - {product.price.toLocaleString()} جنيه
               </Button>
               
               {product.whatsapp_number && (
                 <Button 
-                  variant="outline" 
-                  className="border-white text-white hover:bg-white hover:text-primary text-lg px-6 py-3"
+                  variant="whatsapp"
+                  size="lg"
                   onClick={() => window.open(`https://wa.me/${product.whatsapp_number}`, '_blank')}
                 >
                   <MessageCircle className="w-5 h-5 ml-2" />
